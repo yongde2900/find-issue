@@ -1,0 +1,52 @@
+name: Watch issues
+
+on:
+  schedule:
+    - cron: "*/5 * * * *" # GitHub 的排程常會延遲幾分鐘
+  workflow_dispatch:
+
+# 避免兩次執行同時讀寫 .last_seen.json
+concurrency:
+  group: watch-issues
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      # .last_seen.json 存在 Actions cache，每次存新的一份，下次還原最新的那份
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: .last_seen.json
+          key: last-seen-${{ github.run_id }}
+          restore-keys: last-seen-
+
+      - name: Write config
+        env:
+          CONFIG_JSON: ${{ secrets.CONFIG_JSON }}
+        run: |
+          if [ -z "$CONFIG_JSON" ]; then
+            echo "::error::請在 repo 的 Settings > Secrets 設定 CONFIG_JSON (內容同 config.json)"
+            exit 1
+          fi
+          printf '%s' "$CONFIG_JSON" > config.json
+
+      - name: Check for new issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: go run . -once
+
+      - name: Save state
+        if: always() && hashFiles('.last_seen.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .last_seen.json
+          key: last-seen-${{ github.run_id }}

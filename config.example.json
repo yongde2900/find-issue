@@ -1,0 +1,10 @@
+{
+  "interval": "5m",
+  "repos": [
+    "ray-project/kuberay"
+  ],
+  "telegram": {
+    "chat_id": "@your_channel_or_-100xxxxxxxxxx",
+    "bot_token": "123456:your-bot-token"
+  }
+}
