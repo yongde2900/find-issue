@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "*/5 * * * *" # GitHub 的排程常會延遲幾分鐘
   workflow_dispatch:
+    inputs:
+      rewind:
+        description: "把每個 repo 的 last seen 往回調 N 號，用來重送通知測試 (0 = 不調整)"
+        type: number
+        default: 0
 
 # 避免兩次執行同時讀寫 .last_seen.json
 concurrency:
@@ -28,6 +33,15 @@ jobs:
           path: .last_seen.json
           key: last-seen-${{ github.run_id }}
           restore-keys: last-seen-
+
+      - name: Rewind state
+        if: inputs.rewind > 0 && hashFiles('.last_seen.json') != ''
+        env:
+          REWIND: ${{ inputs.rewind }}
+        run: |
+          jq --argjson n "$REWIND" 'map_values(. - $n)' .last_seen.json > tmp.json
+          mv tmp.json .last_seen.json
+          cat .last_seen.json
 
       - name: Write config
         env:
